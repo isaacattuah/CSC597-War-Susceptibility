@@ -1,4 +1,4 @@
-# War-Susceptibility
+# War Susceptibility
 
 ## Description
 A statistical learning project aimed at predicting various war outcomes and effects
