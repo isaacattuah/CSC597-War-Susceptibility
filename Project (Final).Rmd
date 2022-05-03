@@ -27,6 +27,7 @@ library(MASS)
 library(boot)
 library(tree)
 library(randomForest)
+library(caret)
 
 # Load Dataset
 onset_data <- read.csv("onset.csv")
@@ -211,7 +212,7 @@ conf.matrix
 
 set.seed(1)
 
-tree.onset20=tree(onset20 ~ newconf+onset2+onset3+onset5+onset10+duration+incompatibility+intensity_level+cumulative_intensity+ep_end  , train_valid)
+tree.onset20=tree(onset20 ~ newconf+onset2+onset3+onset5+onset10+duration+incompatibility+intensity_level+cumulative_intensity+ep_end  , train_better)
 # Only a few of the variables were used in constructing the tree
 # lstat: percentage of individuals with lower socioeconomic status
 summary(tree.onset20)
@@ -227,21 +228,24 @@ cv.onset20=cv.tree(tree.onset20)
 plot(cv.onset20$size,cv.onset20$dev,type="b")
 
 # prune.tree(): function to prune to be used in case we wanted to prune the tree
-prune.onset20=prune.tree(tree.onset20,best=5)
+prune.onset20=prune.tree(tree.onset20,best=2)
 plot(prune.onset20)
 text(prune.onset20,pretty=0,cex=0.75)
 
 # Predicting based on CV results (i.e., use the unpruned tree)
-yhat=predict(tree.onset20,newdata=test_valid)
+yhat=predict(tree.onset20,newdata=test_better, type="class")
 
-# plot(yhat,test_valid$onset20)
+# plot(yhat,test_better$onset20)
 # abline(0,1)
-# Test error
-mse=mean((yhat-test_valid$onset20)^2)
-mse
-# This model leads to test predictions that are within around $5-6K of the true
-# median home value for the suburb
-sqrt(mse)
+
+# Confusion Matrix
+# Confusion matrix
+conf.matrix <- table(yhat,test_better$onset20)
+conf.matrix
+
+# Accuracy on test set
+(conf.matrix[1,1] + conf.matrix[2,2])/(conf.matrix[1,1] + conf.matrix[2,2] + conf.matrix[1,2]+ conf.matrix[2,1])
+
 ```
 
 ### Random Forests
@@ -251,9 +255,10 @@ sqrt(mse)
 # Let's try m=6
 set.seed(1)
 rf=randomForest(onset20 ~ newconf+onset2+onset3+onset5+onset10+duration+incompatibility+intensity_level+cumulative_intensity+ep_end,data=train_valid,mtry=5,importance =T)
-yhat.rf = predict(tree.onset20,newdata=test_valid)
 
-mean((yhat.rf-as.integer(test_valid$onset20))^2)
+# yhat.rf = predict(tree.onset20,newdata=test_better)
+
+# mean((yhat.rf-as.integer(test_valid$onset20))^2)
 
 # importance(): view the importance of each variable
 # %IncMSE: mean decrease of accuracy in predictions on the OOB samples when a 
@@ -264,30 +269,43 @@ importance(rf)
 
 # varImpPlot(): Variance importance plot
 varImpPlot(rf)
+
+
+# Predicting based on CV results (i.e., use the unpruned tree)
+yhat.rf=predict(tree.onset20,newdata=test_better, type="class")
+
+# plot(yhat,test_better$onset20)
+# abline(0,1)
+
+# Confusion Matrix
+# Confusion matrix
+conf.matrix <- table(yhat.rf,test_better$onset20)
+conf.matrix
+
+# Accuracy on test set
+(conf.matrix[1,1] + conf.matrix[2,2])/(conf.matrix[1,1] + conf.matrix[2,2] + conf.matrix[1,2]+ conf.matrix[2,1])
 ```
 
 ### Other Models
 
--   Penalized Logistic Regression -`plr`
+-   Logistic Regression - `LogitBoost`
 
--   Conditional Inference Random Forest -`cforest`
+-   Linear Discriminant Analysis - `lda`
 
--   Random Forest - `rf`
+-   Regression Trees - `bartMachine`
 
--   Bayesian Generalized Linear Model -`bayesglm`
+-   Random Forests - `ordinalRF` or `rf`
 
--   Boosted Generalized Additive Model **-** `gamboost`
+-   KNN - `knn`
 
--   Support Vector Machines with Linear Kernel - `svmLinear`
+-   SVM (Linear) - `svmLinear`
 
 ```{r}
-library(caret)
-
 #specify the cross-validation method
 ctrl <- trainControl(method = "cv")
 
 #fit a regression model and use LOOCV to evaluate performance
-model <- train(onset20~newconf+onset2+onset3+onset5+onset10, data = train_better, method = "knn", trControl = ctrl)
+model <- train(onset20 ~ newconf+onset2+onset3+onset5+onset10+duration+incompatibility+intensity_level+cumulative_intensity+ep_end, data = train_better, method = "pls", trControl = ctrl)
 
 #view summary of LOOCV               
 print(model)
@@ -410,7 +428,7 @@ conf.matrix
 
 set.seed(1)
 
-tree.onset20=tree(ep_end  ~ newconf+onset2+onset3+onset5+onset10+duration+incompatibility+intensity_level+cumulative_intensity+onset20  , train_valid)
+tree.onset20=tree(ep_end  ~ newconf+onset2+onset3+onset5+onset10+duration+incompatibility+intensity_level+cumulative_intensity+onset20  , train_better)
 # Only a few of the variables were used in constructing the tree
 # lstat: percentage of individuals with lower socioeconomic status
 summary(tree.onset20)
@@ -426,21 +444,20 @@ cv.onset20=cv.tree(tree.onset20)
 plot(cv.onset20$size,cv.onset20$dev,type="b")
 
 # prune.tree(): function to prune to be used in case we wanted to prune the tree
-prune.onset20=prune.tree(tree.onset20,best=5)
+prune.onset20=prune.tree(tree.onset20,best=2)
 plot(prune.onset20)
 text(prune.onset20,pretty=0,cex=0.75)
 
 # Predicting based on CV results (i.e., use the unpruned tree)
-yhat=predict(tree.onset20,newdata=test_valid)
+yhat=predict(tree.onset20,newdata=test_better, type="class")
 
-# plot(yhat,test_valid$onset20)
-# abline(0,1)
-# Test error
-mse=mean((yhat-test_valid$onset20)^2)
-mse
-# This model leads to test predictions that are within around $5-6K of the true
-# median home value for the suburb
-sqrt(mse)
+# Confusion Matrix
+# Confusion matrix
+conf.matrix <- table(yhat,test_better$ep_end)
+conf.matrix
+
+# Accuracy on test set
+(conf.matrix[1,1] + conf.matrix[2,2])/(conf.matrix[1,1] + conf.matrix[2,2] + conf.matrix[1,2]+ conf.matrix[2,1])
 ```
 
 ### Random Forests
@@ -467,17 +484,17 @@ varImpPlot(rf)
 
 ### Other Models
 
--   Penalized Logistic Regression -`plr`
+-   Logistic Regression - `LogitBoost`
 
--   Conditional Inference Random Forest -`cforest`
+-   Linear Discriminant Analysis - `lda`
 
--   Random Forest - `rf`
+-   Regression Trees - `bartMachine`
 
--   Bayesian Generalized Linear Model -`bayesglm`
+-   Random Forests - `ordinalRF` or `rf`
 
--   Boosted Generalized Additive Model **-** `gamboost`
+-   KNN - `knn`
 
--   Support Vector Machines with Linear Kernel - `svmLinear`
+-   SVM (Linear) - `svmLinear`
 
 ```{r}
 library(caret)
@@ -486,7 +503,7 @@ library(caret)
 ctrl <- trainControl(method = "cv")
 
 #fit a regression model and use LOOCV to evaluate performance
-model <- train(ep_end ~ newconf+onset2+onset3+onset5+onset10+duration+incompatibility+intensity_level+cumulative_intensity+onset20, data = train_better, method = "knn", trControl = ctrl)
+model <- train(ep_end ~ newconf+onset2+onset3+onset5+onset10+duration+incompatibility+intensity_level+cumulative_intensity+onset20, data = train_better, method = "pls", trControl = ctrl)
 
 #view summary of LOOCV               
 print(model)
@@ -507,7 +524,7 @@ mean(predictions!=test_better$ep_end)
 ```
 
 ```{r}
-confusionMatrix(data = predict(model, test_better), test_better$onset20)
+confusionMatrix(data = predict(model, test_better), test_better$ep_end)
 ```
 
 # **Phase 3: Predicting War Susceptibility**
@@ -630,16 +647,15 @@ plot(prune.onset20)
 text(prune.onset20,pretty=0,cex=0.75)
 
 # Predicting based on CV results (i.e., use the unpruned tree)
-yhat=predict(tree.onset20,newdata=test_better)
+yhat=predict(tree.onset20,newdata=test_better, type="class")
 
-# plot(yhat,test_valid$onset20)
-# abline(0,1)
-# Test error
-mse=mean((yhat-test_valid$onset20)^2)
-mse
-# This model leads to test predictions that are within around $5-6K of the true
-# median home value for the suburb
-sqrt(mse)
+# Confusion Matrix
+# Confusion matrix
+conf.matrix <- table(yhat,test_better$intensity_level)
+conf.matrix
+
+# Accuracy on test set
+(conf.matrix[1,1] + conf.matrix[2,2])/(conf.matrix[1,1] + conf.matrix[2,2] + conf.matrix[1,2]+ conf.matrix[2,1])
 ```
 
 ### Random Forests
@@ -666,17 +682,19 @@ varImpPlot(rf)
 
 # Other Models
 
--   Penalized Logistic Regression -`plr`
+-   Logistic Regression - `LogitBoost`
 
--   Conditional Inference Random Forest -`cforest`
+-   Linear Discriminant Analysis - `lda`
 
--   Random Forest - `rf`
+-   Regression Trees - `bartMachine`
 
--   Bayesian Generalized Linear Model -`bayesglm`
+-   Random Forests - `ordinalRF` or `rf`
 
--   Boosted Generalized Additive Model **-** `gamboost`
+-   KNN - `knn`
 
--   Support Vector Machines with Linear Kernel - `svmLinear`
+-   SVM (Linear) - `svmLinear`
+
+-   
 
 ```{r}
 library(caret)
@@ -685,7 +703,7 @@ library(caret)
 ctrl <- trainControl(method = "cv")
 
 #fit a regression model and use LOOCV to evaluate performance
-model <- train(intensity_level ~ newconf+onset2+onset3+onset5+onset10+onset20+duration+year_prev+duration+cumulative_intensity+ep_end+incompatibility, data = train_better, method = "knn", trControl = ctrl)
+model <- train(intensity_level ~ newconf+onset2+onset3+onset5+onset10+onset20+duration+year_prev+duration+cumulative_intensity+ep_end+incompatibility, data = train_better, method = "pls", trControl = ctrl)
 
 #view summary of LOOCV               
 print(model)
@@ -706,5 +724,5 @@ mean(predictions!=test_better$intensity_level)
 ```
 
 ```{r}
-confusionMatrix(data = predict(model, test_better), test_better$ep_end)
+confusionMatrix(data = predict(model, test_better), test_better$intensity_level)
 ```
